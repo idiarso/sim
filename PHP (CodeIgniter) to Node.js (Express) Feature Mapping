@@ -1,0 +1,87 @@
+# PHP (CodeIgniter) to Node.js (Express) Feature Mapping
+
+This document maps the core features identified in the Garuda CBT PHP application (documented in `features.md`) to their proposed implementation within the Node.js Express architecture (outlined in `architecture.md`). It serves as a guide for the migration process.
+
+## 1. Authentication and User Management
+
+*   **PHP (CodeIgniter):**
+    *   `Auth` controller handles login/logout.
+    *   `Ion Auth` library provides core authentication logic.
+    *   `Useradmin`, `Userguru`, `Usersiswa` controllers manage user CRUD for specific roles.
+    *   `Users_model`, `Ion_auth_model`, `Master_model` handle database interactions with `users`, `groups`, `users_groups`, `master_guru`, `master_siswa` tables.
+*   **Node.js (Express):**
+    *   **Routes:** Define endpoints under `/api/v1/auth` (e.g., `/login`, `/logout`, `/register` - if needed) and `/api/v1/users` (e.g., `/`, `/:id`, `/roles`). Specific role management might be under `/api/v1/users/admins`, `/api/v1/users/teachers`, `/api/v1/users/students`.
+    *   **Controllers:** Create `auth.controller.js` and `user.controller.js`. `auth.controller.js` will handle login/logout requests, interacting with the authentication service. `user.controller.js` will manage CRUD operations for users, potentially with role-specific logic or separate controllers if complexity warrants.
+    *   **Services:** Implement `auth.service.js` using `Passport.js` (local strategy) for credential validation against the `users` model (managed by Sequelize). Implement `user.service.js` to handle business logic for user creation, profile updates, role assignments, and retrieval, interacting with Sequelize models (`User`, `Group`, `UserGroup`, `TeacherProfile`, `StudentProfile`).
+    *   **Middleware:** Use `passport.authenticate()` for login. Create custom middleware (`auth.middleware.js`) to verify JWT tokens or sessions for protected routes and check user roles (`isAdmin`, `isTeacher`, `isStudent`) for authorization.
+    *   **Models (Sequelize):** Define `User`, `Group`, `UserGroup`, `TeacherProfile` (`master_guru`), `StudentProfile` (`master_siswa`) models corresponding to the PostgreSQL tables, including associations.
+
+
+
+## 2. Computer-Based Testing (CBT) Module
+
+*   **PHP (CodeIgniter):**
+    *   `Cbt` controller manages core testing logic.
+    *   `Banksoal` controller handles question bank management.
+    *   `Cbtjadwal` controller manages exam scheduling.
+    *   `Cbt_model` handles database interactions with `cbt_bank_soal`, `cbt_soal`, `cbt_jadwal`, `cbt_jenis`, `cbt_kelas_ruang`, `cbt_ruang`, `cbt_sesi`, `cbt_sesi_siswa`, `cbt_token`, etc.
+    *   Features include question bank creation (various types), exam scheduling, session/room management, token generation, randomization settings.
+*   **Node.js (Express):**
+    *   **Routes:** Define endpoints under `/api/v1/cbt`. Examples: `/banks` (for question banks), `/banks/:bankId/questions`, `/schedules`, `/schedules/:scheduleId`, `/types`, `/rooms`, `/sessions`, `/token`.
+    *   **Controllers:** Create `cbtBank.controller.js`, `cbtQuestion.controller.js`, `cbtSchedule.controller.js`, `cbtSession.controller.js`, `cbtToken.controller.js`, etc.
+    *   **Services:** Implement corresponding services (`cbtBank.service.js`, `cbtSchedule.service.js`, etc.) to handle business logic for creating/managing question banks, adding/editing questions of different types, setting up exam schedules with various parameters, managing rooms/sessions, generating/validating tokens. Services will interact with Sequelize models.
+    *   **Models (Sequelize):** Define models for `CbtBankSoal`, `CbtSoal`, `CbtJadwal`, `CbtJenis`, `CbtKelasRuang`, `CbtRuang`, `CbtSesi`, `CbtSesiSiswa`, `CbtToken`, etc., based on the translated PostgreSQL schema.
+
+## 3. Student Examination Process
+
+*   **PHP (CodeIgniter):**
+    *   `Siswa` controller likely handles the student-facing exam interface.
+    *   `Cbt_model` and potentially `Siswa` controller logic manage exam state (`cbt_durasi_siswa`), question presentation, answer submission (`cbt_soal_siswa`).
+    *   `Hasilujian` controller might display results.
+    *   Features include starting/resuming exams, displaying questions (randomized), submitting answers, timer management, result display (conditional).
+*   **Node.js (Express):**
+    *   **Routes:** Define endpoints under `/api/v1/student/exams`. Examples: `/active` (list active exams), `/:scheduleId/start`, `/:scheduleId/question` (get next question), `/:scheduleId/answer` (submit answer), `/:scheduleId/status`, `/:scheduleId/results`.
+    *   **Controllers:** Create `studentExam.controller.js`.
+    *   **Services:** Implement `studentExam.service.js`. This service will manage the student's exam lifecycle: checking eligibility, starting the exam (creating/updating `CbtDurasiSiswa`), fetching randomized questions (`CbtSoalSiswa`), saving answers, calculating remaining time, handling exam completion, and retrieving results (`CbtNilai`). It needs complex logic to handle state, randomization, and timing.
+    *   **Middleware:** Authentication middleware (`auth.middleware.js`) ensures only logged-in students can access these endpoints. Authorization logic might check if the student is assigned to the specific exam schedule.
+    *   **Models (Sequelize):** Utilize `CbtDurasiSiswa`, `CbtSoalSiswa`, `CbtJadwal`, `CbtNilai`, `CbtSoal`, `User` (for student ID).
+
+## 4. Master Data Management
+
+*   **PHP (CodeIgniter):**
+    *   Controllers like `Datatp`, `Datasmt`, `Datajurusan`, `Datakelas`, `Datamapel`, `Userguru`, `Datasiswa` manage respective master data.
+    *   `Master_model` likely handles most database interactions with `master_tp`, `master_smt`, `master_jurusan`, `master_kelas`, `master_mapel`, `master_guru`, `master_siswa` tables.
+*   **Node.js (Express):**
+    *   **Routes:** Define endpoints under `/api/v1/master`. Examples: `/academic-years`, `/semesters`, `/majors`, `/classes`, `/subjects`, `/teachers`, `/students`.
+    *   **Controllers:** Create controllers for each master data type (e.g., `academicYear.controller.js`, `class.controller.js`, `student.controller.js`).
+    *   **Services:** Implement corresponding services (e.g., `academicYear.service.js`, `class.service.js`, `student.service.js`) for CRUD operations on each master data entity, interacting with Sequelize models.
+    *   **Middleware:** Authentication and authorization middleware to ensure only administrators (or relevant roles) can manage master data.
+    *   **Models (Sequelize):** Define models for `AcademicYear` (`master_tp`), `Semester` (`master_smt`), `Major` (`master_jurusan`), `Class` (`master_kelas`), `Subject` (`master_mapel`), `TeacherProfile` (`master_guru`), `StudentProfile` (`master_siswa`).
+
+## 5. Classroom and Academic Features
+
+*   **PHP (CodeIgniter):**
+    *   Controllers: `Kelasmateri`, `Kelasjadwal`, `Kelasabsensibulanan`, `Kelasabsensiharian`, `Kelasnilai`, `Kelascatatan`, `Rapor`.
+    *   Models: `Kelas_model`, `Rapor_model` likely handle interactions with tables like `kelas_materi`, `kelas_jadwal_mapel`, `log_materi`, `rapor_*` tables.
+    *   Features: Material/assignment management, scheduling, attendance, non-CBT grading, teacher notes, report card generation.
+*   **Node.js (Express):**
+    *   **Routes:** Define endpoints under `/api/v1/classroom` and `/api/v1/reports`. Examples: `/materials`, `/schedules`, `/attendance`, `/grades`, `/notes`, `/report-cards/generate`, `/report-cards/settings`.
+    *   **Controllers:** Create controllers like `material.controller.js`, `classSchedule.controller.js`, `attendance.controller.js`, `grade.controller.js`, `reportCard.controller.js`.
+    *   **Services:** Implement corresponding services to manage course materials, schedules, record attendance, input/calculate grades (integrating CBT and non-CBT results), manage teacher notes, and handle the complex logic for report card generation based on `rapor_*` data and settings.
+    *   **Middleware:** Authentication and role-based authorization (Teachers manage their classes, Admins oversee, Students view relevant info).
+    *   **Models (Sequelize):** Define models for `KelasMateri`, `KelasJadwalMapel`, `LogMateri`, `RaporAdminSetting`, `RaporNilaiHarian`, `RaporNilaiAkhir`, `RaporKkm`, etc.
+
+## 6. System Settings and Administration
+
+*   **PHP (CodeIgniter):**
+    *   Controllers: `Settings`, `Dbmanager`, `Dbclear`, `Update`, potentially parts of `Auth` or admin controllers.
+    *   Models: `Settings_model`, potentially direct DB operations.
+    *   Features: Application configuration, database management utilities, update mechanisms, API settings.
+*   **Node.js (Express):**
+    *   **Routes:** Define endpoints under `/api/v1/admin/settings`, `/api/v1/admin/system`.
+    *   **Controllers:** Create `settings.controller.js`, `system.controller.js`.
+    *   **Services:** Implement `settings.service.js` for CRUD operations on the `Setting` model. Implement `system.service.js` for functionalities like database backup/restore triggers (if needed, potentially using shell commands executed securely), cache clearing, etc. Update mechanisms would likely be handled outside the runtime application (e.g., Git pull, dependency updates, migration runs).
+    *   **Middleware:** Strict Admin-only authorization.
+    *   **Models (Sequelize):** Define `Setting`, `ApiSetting`, `ApiToken` models.
+    *   **Configuration:** Use `.env` and config files (`config/`) for database credentials, JWT secrets, etc.
+

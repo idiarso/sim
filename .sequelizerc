@@ -1,0 +1,8 @@
+"use strict";
+
+module.exports = {
+  config: __dirname + '/config/config.json',
+  'models-path': __dirname + '/src/models',
+  'seeders-path': __dirname + '/seeders',
+  'migrations-path': __dirname + '/migrations'
+};
